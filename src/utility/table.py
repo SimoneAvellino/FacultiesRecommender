@@ -3,9 +3,41 @@ from typing import Union
 import tabulate
 
 
+class Header:
+
+    def __init__(self, columns_names):
+        """
+        Set the columns names
+        """
+        self.columns_names = columns_names
+
+    def __getitem__(self, index):
+        """
+        Get i-th column name of the header
+        """
+        return self.columns_names[index]
+
+    def __str__(self):
+        header_str = ""
+        for column_name in self.columns_names:
+            header_str += column_name.__str__() + " "
+        return header_str
+
+    def append(self, column_name):
+        self.columns_names.append(column_name)
+        return self
+
+    def append_at_beginning(self, column_name):
+        self.columns_names.insert(0, column_name)
+        return self
+
+    def __len__(self):
+        return len(self.columns_names)
+
+
 class Row:
 
-    def __init__(self, cells):
+    def __init__(self, cells: list[any]):
         self.cells = cells
 
     def __getitem__(self, index):
@@ -52,38 +84,6 @@ class Row:
         return len(self.cells)
 
 
-class Header:
-
-    def __init__(self, columns_names):
-        """
-        Set the columns names
-        """
-        self.columns_names = columns_names
-
-    def __getitem__(self, index):
-        """
-        Get i-th column name of the header
-        """
-        return self.columns_names[index]
-
-    def __str__(self):
-        header_str = ""
-        for column_name in self.columns_names:
-            header_str += column_name.__str__() + " "
-        return header_str
-
-    def append(self, column_name):
-        self.columns_names.append(column_name)
-        return self
-
-    def append_at_beginning(self, column_name):
-        self.columns_names.insert(0, column_name)
-        return self
-
-    def __len__(self):
-        return len(self.columns_names)
-
-
 class Table:
 
     def __init__(self, header, rows=None):
@@ -99,7 +99,7 @@ class Table:
         else:
             return self.rows[index]
 
-    def __iadd__(self, row):
+    def __iadd__(self, row:Row):
         """
         Add a row to the table
         """

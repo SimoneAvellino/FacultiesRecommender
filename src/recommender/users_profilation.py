@@ -10,7 +10,14 @@ class FeatureRow(Row):
         """
         Get the faculty from the row
         """
-        return Faculty(self[-1])
+        # FIX: in the subject_data.json the faculty is a string and not an integer
+        return Faculty(name=self[-2])
+
+    def rate(self) -> int:
+        """
+        Get the rate from the row
+        """
+        return self[-1]
 
 
 class SubjectiveFeatureRow(FeatureRow):
@@ -19,7 +26,7 @@ class SubjectiveFeatureRow(FeatureRow):
         """
         Get the subjective features from the row
         """
-        return self[0: len(self) - 1]
+        return self[0: len(self) - 2]
 
 
 class UsersProfilerDB(Table):
@@ -30,7 +37,11 @@ class UsersProfilerDB(Table):
         with open(os.path.abspath(path), 'r') as file:
             db = json.load(file)['subjective_data']
         for user_profile in db:
-            self += SubjectiveFeatureRow([user_profile[key] for key in user_profile])
+            # create a new row with: answers, faculty and rate
+            row = [user_profile[key] for key in user_profile if key != "faculty" and key != "rate"]
+            row.append(user_profile["faculty"])
+            row.append(user_profile["rate"])
+            self += SubjectiveFeatureRow(row)
 
     def faculties(self) -> list[Faculty]:
         """

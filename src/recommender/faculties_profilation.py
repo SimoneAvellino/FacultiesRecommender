@@ -2,6 +2,7 @@ import mysql.connector
 from dotenv import load_dotenv
 import os
 from src.utility.table import Table, Row, Header
+from src.db import db
 
 # Load environment variables from .env file
 load_dotenv()
@@ -13,19 +14,13 @@ class FacultiesProfilerDB:
     def __new__(self):
         if not hasattr(self, 'instance'):
             self.instance = super(FacultiesProfilerDB, self).__new__(self)
-            self.db = mysql.connector.connect(
-                host=os.getenv("DB_HOST"),
-                user=os.getenv("DB_USER"),
-                password=os.getenv("DB_PASSWORD"),
-                database=os.getenv("DB_NAME")
-            )
-            self.cursor = self.db.cursor()
+            self.db = db
+            self.cursor = self.db.cursor(buffered=True)
         return self.instance
 
     def idf(self, word:str):
-        cursor = self.db.cursor()
-        cursor.execute("SELECT idf FROM keywords WHERE word = %s", (word,))
-        result = cursor.fetchone()
+        self.cursor.execute("SELECT idf FROM keywords WHERE word = %s", (word,))
+        result = self.cursor.fetchone()
         if result is None:
             return 0
         return result[0]
@@ -37,6 +32,19 @@ class FacultiesProfilerDB:
         return result
 
     def tf_idf_table(self, words: list[str]) -> Table:
+
+        # Costruiamo l'header
+        header = Header(["faculty_id"] + words)
+        t = Table(header)
+
+        if len(words) == 0:
+            return t
+
+        # sort words by length
+        words.sort(key=len, reverse=True)
+        # consider only up to 50 words (because of the limit of the number of tables that can be joined)
+        words = words[:50]
+
         # Costruiamo dinamicamente la parte della query che corrisponde ai LEFT JOIN per ciascuna parola
         left_join_part = ""
         for i, word in enumerate(words):
@@ -65,9 +73,6 @@ class FacultiesProfilerDB:
         self.cursor.execute(query)
         result = self.cursor.fetchall()
 
-        # Costruiamo l'header
-        header = Header(["faculty_id"] + words)
-        t = Table(header)
         for row in result:
             t += Row(row)
         return t

@@ -5,8 +5,8 @@ from src.recommender.users_profilation import UsersProfilerDB, Header
 from src.utility.table import Row, Header, Table
 from src.recommender.faculties_profilation import FacultiesProfilerDB
 
-db_user = UsersProfilerDB(Header(["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "faculty"]),
-                          "../data/subjective_data.json")
+db_user = UsersProfilerDB(Header(["1", "2", "3", "4", "5", "6", "7", "8", "faculty", "rate"]),
+                          "./data/subjective_data.json")
 db_faculties = FacultiesProfilerDB()
 
 
@@ -24,22 +24,20 @@ class UsersProfiler(object):
         for row in db_user.rows:
             distance = Row.cosine_distance(row.subjective_features(), Row(interest_array))
             distances.append(distance)
-        # transform distances in scores
-        mu_dist = sum(distances) / len(distances)
         # sort the faculties by cosine distance
         faculties = db_user.faculties()
         # sort the index of array distance and use it to sort the faculties
         indices = sorted(range(len(distances)), key=lambda x: distances[x])
-        faculties = [(faculties[i], UsersProfiler.score_function(distances[i], mu_dist)) for i in indices]
+        faculties = [(faculties[i], UsersProfiler.score_function(distances[i])) for i in indices]
         return faculties
 
     @staticmethod
-    def score_function(distance, mu_dist) -> float:
+    def score_function(distance) -> float:
         """
-        mu_dist is the mean distance between the user and the other users
-        the least the distance, the most the score
+        The score function is a function that takes the distance between the user and the faculty
+        and return a score that is used to sort the faculties.
         """
-        return (2 ** (mu_dist / distance)) - 1
+        return 2 - distance
 
 
 class FacultiesProfiler(object):
@@ -52,17 +50,13 @@ class FacultiesProfiler(object):
     @staticmethod
     def recommend(positive_interests: list[str], negative_interests: list[str]) -> list[tuple[Faculty, float]]:
 
-        consigliate = FacultiesProfiler._recommend_helper(positive_interests)
-        non_consigliate = FacultiesProfiler._recommend_helper(negative_interests)
+        recommended_faculties = FacultiesProfiler._recommend_helper(positive_interests)
+        not_recommended_faculties = FacultiesProfiler._recommend_helper(negative_interests)
 
-        print("Consigliate:")
-        for i in range(5):
-            print(consigliate[i][0].name())
+        faculties = recommended_faculties
+        faculties.extend([(f[0], -f[1]) for f in not_recommended_faculties])
 
-        print()
-        print("Non consigliate:")
-        for i in range(5):
-            print(non_consigliate[i][0].name())
+        return faculties
 
     @staticmethod
     def _recommend_helper(interests) -> list[tuple[Faculty, float]]:
@@ -72,11 +66,11 @@ class FacultiesProfiler(object):
         interests, query_vector = FacultiesProfiler.query_vector(interests)
         # retrieve the faculties table with all tf-idf of the query words
         interests_table = db_faculties.tf_idf_table(interests)
-        print(interests_table)
         # calculate the similarity between the query vector and each faculty
         similarities = []
         for row in interests_table:
             # row[1:] because the first element is the faculty_id
+            s = Row.cosine_similarity(row[1:], query_vector)
             similarities.append(Row.cosine_similarity(row[1:], query_vector))
 
         # if similarity is -inf it means that the faculty has no words in common with the query
@@ -96,7 +90,7 @@ class FacultiesProfiler(object):
 
     @staticmethod
     def score_function(similarity: float) -> float:
-        return similarity
+        return 2 * similarity
 
     @staticmethod
     def words_vector_table(words: list[str]) -> Table:
@@ -104,7 +98,6 @@ class FacultiesProfiler(object):
         for i, word in enumerate(words):
             db_faculties.tf(word)
         return Table(header)
-
 
     @staticmethod
     def query_vector(interests: list[str]) -> tuple[list[str], Row]:
@@ -126,8 +119,6 @@ class FacultiesProfiler(object):
         tf_idf_interests = {k: v for k, v in tf_idf_interests.items() if v != 0}
 
         return (list(tf_idf_interests.keys()), Row(tf_idf_interests.values()))
-
-
 
     @staticmethod
     def tf(words):
